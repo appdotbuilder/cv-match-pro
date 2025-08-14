@@ -1,8 +1,25 @@
+import { db } from '../db';
+import { cvsTable } from '../db/schema';
 import { type GetCVsByUserInput, type CV } from '../schema';
+import { eq, desc, asc, sql } from 'drizzle-orm';
 
-export async function getCVsByUser(input: GetCVsByUserInput): Promise<CV[]> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching all CVs belonging to a specific user.
-    // Should return CVs ordered by creation date with the active CV first.
-    return Promise.resolve([]);
-}
+export const getCVsByUser = async (input: GetCVsByUserInput): Promise<CV[]> => {
+  try {
+    // Fetch CVs for the user, ordered with ACTIVE status first, then by creation date (newest first)
+    const results = await db.select()
+      .from(cvsTable)
+      .where(eq(cvsTable.user_id, input.user_id))
+      .orderBy(
+        // ACTIVE status first (ACTIVE = 1, INACTIVE = 0 when ordered DESC)
+        desc(sql`CASE WHEN ${cvsTable.status} = 'ACTIVE' THEN 1 ELSE 0 END`),
+        // Then by creation date (newest first)
+        desc(cvsTable.created_at)
+      )
+      .execute();
+
+    return results;
+  } catch (error) {
+    console.error('Failed to fetch CVs by user:', error);
+    throw error;
+  }
+};

@@ -1,18 +1,66 @@
+import { db } from '../db';
+import { searchProjectsTable, projectCvsTable } from '../db/schema';
 import { type UpdateSearchProjectInput, type SearchProject } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function updateSearchProject(input: UpdateSearchProjectInput): Promise<SearchProject> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating project details, criteria, or weights.
-    // Should trigger re-scoring/re-ranking of existing project CVs when criteria change.
-    // Only the project creator or TALENT_ACQUISITION role should be able to update projects.
-    return Promise.resolve({
-        id: input.id,
-        name: input.name || '', // Placeholder
-        description: input.description || null,
-        created_by_user_id: 0, // Placeholder
-        status: input.status || 'DRAFT',
-        criteria: input.criteria || {},
-        created_at: new Date(),
-        updated_at: new Date()
-    } as SearchProject);
-}
+export const updateSearchProject = async (input: UpdateSearchProjectInput): Promise<SearchProject> => {
+  try {
+    // First, check if the project exists
+    const existingProject = await db.select()
+      .from(searchProjectsTable)
+      .where(eq(searchProjectsTable.id, input.id))
+      .execute();
+
+    if (existingProject.length === 0) {
+      throw new Error('Search project not found');
+    }
+
+    // Prepare update object with only provided fields
+    const updateData: any = {
+      updated_at: new Date()
+    };
+
+    if (input.name !== undefined) {
+      updateData.name = input.name;
+    }
+
+    if (input.description !== undefined) {
+      updateData.description = input.description;
+    }
+
+    if (input.status !== undefined) {
+      updateData.status = input.status;
+    }
+
+    if (input.criteria !== undefined) {
+      updateData.criteria = input.criteria;
+    }
+
+    // Update the project
+    const result = await db.update(searchProjectsTable)
+      .set(updateData)
+      .where(eq(searchProjectsTable.id, input.id))
+      .returning()
+      .execute();
+
+    const updatedProject = result[0];
+
+    // If criteria were updated, reset scores and rankings for existing project CVs
+    // This triggers re-evaluation of all CVs against new criteria
+    if (input.criteria !== undefined) {
+      await db.update(projectCvsTable)
+        .set({
+          score: null,
+          ranking: null,
+          updated_at: new Date()
+        })
+        .where(eq(projectCvsTable.project_id, input.id))
+        .execute();
+    }
+
+    return updatedProject;
+  } catch (error) {
+    console.error('Search project update failed:', error);
+    throw error;
+  }
+};

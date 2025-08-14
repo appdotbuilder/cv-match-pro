@@ -1,8 +1,19 @@
+import { db } from '../db';
+import { usersTable } from '../db/schema';
 import { type GetUsersByRoleInput, type User } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function getUsersByRole(input: GetUsersByRoleInput): Promise<User[]> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching all users with a specific role.
-    // Used by admins to manage users or for role-based dashboards.
-    return Promise.resolve([]);
-}
+export const getUsersByRole = async (input: GetUsersByRoleInput): Promise<User[]> => {
+  try {
+    // Query users by role
+    const result = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.role, input.role))
+      .execute();
+
+    return result;
+  } catch (error) {
+    console.error('Get users by role failed:', error);
+    throw error;
+  }
+};

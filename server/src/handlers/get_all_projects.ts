@@ -1,9 +1,20 @@
+import { db } from '../db';
+import { searchProjectsTable, usersTable } from '../db/schema';
 import { type SearchProject } from '../schema';
+import { desc } from 'drizzle-orm';
 
-export async function getAllProjects(): Promise<SearchProject[]> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching all search projects for system overview.
-    // Should be accessible only to TALENT_ACQUISITION role for pipeline monitoring.
-    // Should include filtering and sorting options for project management.
-    return Promise.resolve([]);
-}
+export const getAllProjects = async (): Promise<SearchProject[]> => {
+  try {
+    // Query all search projects ordered by creation date (newest first)
+    const results = await db.select()
+      .from(searchProjectsTable)
+      .orderBy(desc(searchProjectsTable.created_at))
+      .execute();
+
+    // Return the results (no type conversion needed for this table)
+    return results;
+  } catch (error) {
+    console.error('Failed to fetch all projects:', error);
+    throw error;
+  }
+};
